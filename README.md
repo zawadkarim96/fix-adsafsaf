@@ -15,7 +15,7 @@
 ## Run Without Touching the Command Line
 These launchers create a dedicated virtual environment, install dependencies from `requirements.txt`, and then open the Streamlit app inside the native desktop shell (no browser required). After the first setup run the cached environment is reused automatically, so relaunching is instant. You only need Python 3.9+ installed. You can still run `streamlit run main.py` for the traditional browser experience—both approaches share the exact same database and uploads.
 
-To launch the PS Business Suites by ZAD sales experience instead of the service CRM, set `PS_APP=sales` (or `PS_APP_SCRIPT=sales_app.py` when using the desktop launcher) before starting the application. The same unified requirements file and Procfile work for both apps on Render or Railway.
+To launch the PS Business Suites by ZAD sales experience instead of the service CRM, set `PS_APP=sales` (or `PS_APP_SCRIPT=sales_app.py` when using the desktop launcher) before starting the application. The same unified requirements file and Procfile work for both apps on Render or Railway. Render deployments now start via `render_bootstrap.py`, which enforces headless mode/disabled analytics and skips installing signal handlers when the platform runs Streamlit in a worker thread (a common cause of `ValueError: signal only works in main thread` on Python 3.13).
 
 ### Any Platform (single command or double-click)
 Run `python run_app.py` from the repository root, or double-click the file in your file explorer. The script prepares the environment and launches the app inside a pywebview dialog titled **PS Business Suites**.
