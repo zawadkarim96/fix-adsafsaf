@@ -25,7 +25,6 @@ import subprocess
 import shutil
 import socket
 import sys
-import threading
 import time
 from pathlib import Path
 
@@ -77,29 +76,26 @@ def main() -> None:
         "server.port": port,
     }
 
-    streamlit_thread = threading.Thread(
-        target=bootstrap.run,
-        args=(str(app_script), "", [], flag_options),
-        name="streamlit-runtime",
-        daemon=True,
-    )
-    streamlit_thread.start()
-
-    if not _wait_for_server(port, timeout=SERVER_STARTUP_TIMEOUT):
-        raise RuntimeError(
-            "Timed out waiting for the Streamlit server to start. Please try again."
-        )
-
-    app_url = f"http://{HOST_ADDRESS}:{port}"
+    server_process = _start_streamlit_server(app_script, flag_options)
 
     try:
-        webview.create_window(WINDOW_TITLE, app_url, width=1100, height=760)
-        webview.start(debug=False)
-    except Exception as exc:  # pragma: no cover - GUI availability depends on platform
-        raise RuntimeError(
-            "Unable to initialize the desktop window. "
-            "Please ensure your system supports pywebview."
-        ) from exc
+        if not _wait_for_server(port, timeout=SERVER_STARTUP_TIMEOUT):
+            raise RuntimeError(
+                "Timed out waiting for the Streamlit server to start. Please try again."
+            )
+
+        app_url = f"http://{HOST_ADDRESS}:{port}"
+
+        try:
+            webview.create_window(WINDOW_TITLE, app_url, width=1100, height=760)
+            webview.start(debug=False)
+        except Exception as exc:  # pragma: no cover - GUI availability depends on platform
+            raise RuntimeError(
+                "Unable to initialize the desktop window. "
+                "Please ensure your system supports pywebview."
+            ) from exc
+    finally:
+        _stop_streamlit_server(server_process)
 
 
 def _reserve_port() -> int:
@@ -125,6 +121,44 @@ def _wait_for_server(port: int, *, timeout: float) -> bool:
             else:
                 return True
     return False
+
+
+def _start_streamlit_server(app_script: Path, flag_options: dict[str, object]) -> subprocess.Popen:
+    """Launch the Streamlit runtime in a separate process."""
+
+    command = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(app_script),
+        "--browser.gatherUsageStats",
+        "false",
+    ]
+
+    for key, value in flag_options.items():
+        command.extend([f"--{key}", str(value).lower() if isinstance(value, bool) else str(value)])
+
+    try:
+        return subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "BROWSER": os.environ.get("BROWSER", "none")},
+        )
+    except OSError as exc:  # pragma: no cover - defensive
+        raise RuntimeError("Failed to start the Streamlit server process.") from exc
+
+
+def _stop_streamlit_server(process: subprocess.Popen) -> None:
+    """Terminate the Streamlit subprocess if it is still running."""
+
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
 
 
 def _import_pywebview():
