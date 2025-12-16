@@ -57,6 +57,14 @@ def ensure_virtual_environment() -> Path:
     return python_path
 
 
+def _webview_desired() -> bool:
+    """Return True when the desktop launcher should attempt to use pywebview."""
+
+    disable_flag = os.environ.get("PS_NO_WEBVIEW", "").lower() in {"1", "true", "yes"}
+    no_display = sys.platform.startswith("linux") and not os.environ.get("DISPLAY")
+    return not disable_flag and not no_display
+
+
 def _requirements_fingerprint() -> str:
     """Return a hash that represents the current dependency lock."""
 
@@ -91,6 +99,10 @@ def ensure_pywebview_available(venv_python: Path) -> None:
     the launcher resilient by bootstrapping the dependency on demand when it
     is not already installed.
     """
+
+    if not _webview_desired():
+        # Skip installation on headless servers where pywebview cannot start.
+        return
 
     try:
         run_command(
