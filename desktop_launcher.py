@@ -58,7 +58,17 @@ def ensure_template_file(storage_dir: Path) -> None:
 
 
 def main() -> None:
-    webview = _import_pywebview()
+    use_webview = _webview_desired()
+    webview = None
+
+    if use_webview:
+        try:
+            webview = _import_pywebview()
+        except RuntimeError:
+            # pywebview is not available (or cannot be installed) in this
+            # environment. Fall back to running in the browser so the CLI
+            # launcher still works on headless servers.
+            use_webview = False
     storage_dir = get_storage_dir()
     ensure_template_file(storage_dir)
 
@@ -86,14 +96,18 @@ def main() -> None:
 
         app_url = f"http://{HOST_ADDRESS}:{port}"
 
-        try:
-            webview.create_window(WINDOW_TITLE, app_url, width=1100, height=760)
-            webview.start(debug=False)
-        except Exception as exc:  # pragma: no cover - GUI availability depends on platform
-            raise RuntimeError(
-                "Unable to initialize the desktop window. "
-                "Please ensure your system supports pywebview."
-            ) from exc
+        if use_webview and webview is not None:
+            try:
+                webview.create_window(WINDOW_TITLE, app_url, width=1100, height=760)
+                webview.start(debug=False)
+            except Exception as exc:  # pragma: no cover - GUI availability depends on platform
+                _notify_webview_disabled(app_url)
+                server_process.wait()
+                return
+        else:
+            _notify_webview_disabled(app_url)
+            server_process.wait()
+            return
     finally:
         _stop_streamlit_server(server_process)
 
@@ -201,6 +215,21 @@ def _install_pywebview() -> None:
             "pywebview installation failed. Please run 'pip install pywebview>=4.4' "
             "inside your environment and retry."
         ) from exc
+
+
+def _webview_desired() -> bool:
+    """Return True when pywebview should be used for the desktop launcher."""
+
+    disable_flag = os.environ.get("PS_NO_WEBVIEW", "").lower() in {"1", "true", "yes"}
+    no_display = sys.platform.startswith("linux") and not os.environ.get("DISPLAY")
+    return not disable_flag and not no_display
+
+
+def _notify_webview_disabled(app_url: str) -> None:
+    """Inform the user that pywebview is unavailable and provide the app URL."""
+
+    print("pywebview is unavailable in this environment; running in browser mode instead.")
+    print(f"Open {app_url} in your browser to access the application.")
 
 
 if __name__ == "__main__":
