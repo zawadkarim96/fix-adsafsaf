@@ -13,7 +13,6 @@ import threading
 from typing import Any
 
 from streamlit.web import bootstrap
-from streamlit.web import cli as stcli
 
 # Keep a reference to the original handler so we can call it when safe.
 _original_set_up_signal_handler = bootstrap._set_up_signal_handler
@@ -51,4 +50,12 @@ def _apply_render_defaults() -> None:
 
 if __name__ == "__main__":
     _apply_render_defaults()
-    stcli._main_run("main.py")
+    # Invoke the Streamlit runner directly instead of the Click-driven CLI to
+    # avoid ``RuntimeError: There is no active click context`` when Railway
+    # launches the app without a Click context.
+    bootstrap.run(
+        "main.py",
+        is_hello=False,
+        args=[],
+        flag_options={},
+    )
