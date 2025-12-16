@@ -217,12 +217,18 @@ def _install_pywebview() -> None:
         ) from exc
 
 
+def _running_on_render() -> bool:
+    """Return True when the process appears to be running on Render."""
+
+    return any(os.environ.get(var) for var in ["RENDER", "RENDER_SERVICE_ID", "RENDER_INTERNAL_HOSTNAME"])
+
+
 def _webview_desired() -> bool:
     """Return True when pywebview should be used for the desktop launcher."""
 
     disable_flag = os.environ.get("PS_NO_WEBVIEW", "").lower() in {"1", "true", "yes"}
     no_display = sys.platform.startswith("linux") and not os.environ.get("DISPLAY")
-    return not disable_flag and not no_display
+    return not disable_flag and not no_display and not _running_on_render()
 
 
 def _notify_webview_disabled(app_url: str) -> None:
