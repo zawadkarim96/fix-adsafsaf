@@ -17,6 +17,12 @@ These launchers create a dedicated virtual environment, install dependencies fro
 
 To launch the PS Business Suites by ZAD sales experience instead of the service CRM, set `PS_APP=sales` (or `PS_APP_SCRIPT=sales_app.py` when using the desktop launcher) before starting the application. The same unified requirements file and Procfile work for both apps on Render or Railway. Render deployments now start via `render_bootstrap.py`, which enforces headless mode/disabled analytics and skips installing signal handlers when the platform runs Streamlit in a worker thread (a common cause of `ValueError: signal only works in main thread` on Python 3.13).
 
+### Railway/Render deployment
+- **Build:** `pip install -r requirements.txt`
+- **Start:** `python render_bootstrap.py`
+
+Render reads the `render.yaml` in the repository root so the dashboard and Blueprint deploys stay in sync with the Procfile entry. Railway automatically picks up `railway.toml` for the same reason. The bootstrapper binds Streamlit to `$PORT`, sets `0.0.0.0` as the server address, and disables analytics/headed mode for compatibility with both platforms. The Render blueprint also pins the Python runtime (`PYTHON_VERSION=3.11.9`) to match the local `runtime.txt`.
+
 ### Any Platform (single command or double-click)
 Run `python run_app.py` from the repository root, or double-click the file in your file explorer. The script prepares the environment and launches the app inside a pywebview dialog titled **PS Business Suites**.
 

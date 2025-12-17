@@ -67,8 +67,7 @@ def _webview_desired() -> bool:
     """Return True when the desktop launcher should attempt to use pywebview."""
 
     disable_flag = os.environ.get("PS_NO_WEBVIEW", "").lower() in {"1", "true", "yes"}
-    no_display = sys.platform.startswith("linux") and not os.environ.get("DISPLAY")
-    return not disable_flag and not no_display and not _running_on_render()
+    return not disable_flag and not _running_on_render()
 
 
 def _requirements_fingerprint() -> str:
@@ -107,7 +106,7 @@ def ensure_pywebview_available(venv_python: Path) -> None:
     """
 
     if not _webview_desired():
-        # Skip installation on headless servers where pywebview cannot start.
+        # Skip installation when explicitly disabled or when running on Render.
         return
 
     try:
