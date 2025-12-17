@@ -20,6 +20,9 @@ def _target() -> str:
 
 def main() -> None:
     target = _target()
+    message = f"Launching PS Business Suites ({target} experience)..."
+    print(message)
+    st.write(message)
     if target == "sales":
         import sales_app
 
