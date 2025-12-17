@@ -39,23 +39,53 @@ def _safe_set_up_signal_handler(server: Any) -> None:
 bootstrap._set_up_signal_handler = _safe_set_up_signal_handler  # type: ignore[attr-defined]
 
 
-def _apply_render_defaults() -> None:
-    """Ensure Streamlit runs with the expected Render configuration."""
+def _apply_render_defaults() -> dict[str, Any]:
+    """Ensure Streamlit runs with the expected Render configuration.
 
+    The returned dict is safe to pass directly to ``bootstrap.run`` so the
+    server always binds to the Render-provided ``$PORT`` even if Streamlit
+    ignores the corresponding environment variables.
+    """
+
+    # Normalize the environment so both Streamlit and Render agree on which
+    # interface/port to bind. We also mirror the computed value back into
+    # ``PORT`` because some platforms (and older Streamlit builds) still
+    # prefer reading that variable directly.
     os.environ.setdefault("STREAMLIT_SERVER_ADDRESS", "0.0.0.0")
     os.environ.setdefault("STREAMLIT_SERVER_PORT", os.getenv("PORT", "8501"))
     os.environ.setdefault("STREAMLIT_SERVER_HEADLESS", "true")
     os.environ.setdefault("STREAMLIT_BROWSER_GATHERUSAGESTATS", "false")
 
+    # Explicitly pass the address/port to the bootstrapper so deployments bind
+    # to the externally-provided port even if environment parsing changes.
+    port_env = os.environ["STREAMLIT_SERVER_PORT"].strip()
+    try:
+        port = int(port_env)
+    except ValueError:
+        # Fallback to a safe default and update the environment so the value
+        # stays consistent everywhere the port is read.
+        port = 8501
+    os.environ["PORT"] = str(port)
+
+    return {
+        "server.address": os.environ["STREAMLIT_SERVER_ADDRESS"],
+        "server.port": port,
+        "server.headless": os.environ["STREAMLIT_SERVER_HEADLESS"].lower()
+        == "true",
+        "browser.gatherUsageStats": os.environ["STREAMLIT_BROWSER_GATHERUSAGESTATS"].lower()
+        == "true",
+    }
+
 
 if __name__ == "__main__":
-    _apply_render_defaults()
+    flag_options = _apply_render_defaults()
+    app_path = os.path.join(os.path.dirname(__file__), "main.py")
     # Invoke the Streamlit runner directly instead of the Click-driven CLI to
     # avoid ``RuntimeError: There is no active click context`` when Railway
     # launches the app without a Click context.
     bootstrap.run(
-        "main.py",
+        app_path,
         is_hello=False,
         args=[],
-        flag_options={},
+        flag_options=flag_options,
     )
